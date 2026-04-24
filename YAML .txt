@@ -1,0 +1,60 @@
+# Linux Netplan 格式
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp3s0:
+      dhcp4: no
+      addresses:
+        - 192.168.100.100/24
+      routes:
+        - to: default
+          via: 192.168.100.1
+      nameservers:
+        addresses: [8.8.4.4, 8.8.8.8]
+```
+
+## 使用方式
+
+1. **儲存設定檔**
+```bash
+sudo nano /etc/netplan/01-netcfg.yaml
+```
+
+2. **套用設定**
+```bash
+sudo netplan apply
+```
+
+3. **測試設定（不實際套用）**
+```bash
+sudo netplan try
+```
+
+4. **檢查設定**
+```bash
+sudo netplan --debug apply
+```
+
+## 注意事項
+- 使用 **空格** 縮排，不要使用 Tab
+- 每層縮排 **2 個空格**
+- YAML 格式對縮排非常敏感
+
+
+
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp3s0:
+      dhcp4: no
+      addresses:
+        - 192.168.100.100/24
+      routes:
+        - to: default
+          via: 192.168.100.1
+      nameservers:
+        addresses: [8.8.4.4, 8.8.8.8]
