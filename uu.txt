@@ -1,0 +1,87 @@
+a. Disable Ubuntu kernel automatic system upgrade function then reboot the system.
+- You need to disable automatic system updates function before using the system. Please refer to the below instructions to disable it.
+
+a. 停用 Ubuntu 核心自動系統升級功能，然後重新啟動系統。
+- 您需要在使用系統前停用自動系統更新功能。請參考以下說明進行停用。
+
+# nano /etc/apt/apt.conf.d/10periodic
+
+Make the below change:
+進行以下更改：
+
+APT::Periodic::Update-Package-Lists "1";
+Change to
+APT::Periodic::Update-Package-Lists "0";
+
+# nano /etc/apt/apt.conf.d/20auto-upgrades
+
+Make the below change:
+進行以下更改：
+
+and change: 
+APT::Periodic::Update-Package-Lists "1"; 
+APT::Periodic::Unattended-Upgrade "1"; 
+to
+APT::Periodic::Update-Package-Lists "0"; 
+APT::Periodic::Unattended-Upgrade "0";
+
+- Reboot the system to apply the above setting.
+b. Plug in the network cable to connect with your network after reboot.
+c. Install the following utilities:
+1) curl
+2) ntpdate
+3) ssh
+4) net-tools
+5) vim
+
+- 重新啟動系統以使上述設定生效。
+b. 重新啟動後，插入網路線連接到您的網路。
+c. 安裝以下實用程式：
+1) curl
+2) ntpdate
+3) ssh
+4) net-tools
+5) vim
+
+# apt-get update 
+# apt-get install ssh 
+# apt-get install ntpdate 
+# apt-get install curl 
+# apt-get install net-tools 
+# apt-get install vim
+
+d. Run ifconfig command as root to check the current setting of IP&DHCP:
+d. 以 root 使用者身分執行 ifconfig 指令，檢查 IP 和 DHCP 的目前設定：
+
+# ifconfig
+
+1.4 Setup network interface
+a. Use the netplan to configure the network. The netplan is the default network tool on Ubuntu 22.04.2.
+
+1.4 設定網路介面
+a. 使用 netplan 設定網路。 netplan 是 Ubuntu 22.04.2 上的預設網路工具。
+
+# sudo apt-get update 
+# sudo apt install netplan.io netplan-
+
+Note: If you have setup any record in the /etc/network/interfaces, please remove it before process this step.
+注意：如果您在 /etc/network/interfaces 中設定了任何記錄，請在執行此步驟之前將其刪除。
+
+b. Create a network configure file (please use Linux format)
+b. 建立網路設定檔（請使用 Linux 格式）
+
+# vim /etc/netplan/01-netcfg.yaml
+
+network: version: 2 renderer: networkd ethernets: enp3s0: dhcp4: no addresses: - 192.168.100.100/24 routes: - to: default via: 192.168.100.1 nameservers: addresses: [8.8.4.4, 8.8.8.8]
+
+# chmod 600 /etc/netplan/*.yaml
+
+Note: Please make sure the interface name in the yaml file should be same as the above network configuration. For example here, the network interface name is “enp3s0”.
+注意：請確保 YAML 檔案中的介面名稱與上述網路設定中的介面名稱一致。例如，此處的網路介面名稱為“enp3s0”。
+
+c. Apply network configure
+c. 應用網路配置
+
+# netplan apply
+
+
