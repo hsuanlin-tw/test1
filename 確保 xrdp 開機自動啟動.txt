@@ -1,0 +1,227 @@
+# 確保 Ubuntu 重啟後可遠端連線的完整設置
+
+## ✅ 完整設置檢查清單
+
+### 1️⃣ **確保 xrdp 開機自動啟動**
+
+```bash
+# 啟用開機自動啟動
+sudo systemctl enable xrdp
+sudo systemctl enable xrdp-sesman
+
+# 驗證是否已啟用
+systemctl is-enabled xrdp
+systemctl is-enabled xrdp-sesman
+```
+
+應該都顯示 `enabled`
+
+---
+
+### 2️⃣ **設置靜態 IP（重要！）**
+
+#### 查看當前網路設置
+```bash
+ip a  # 查看網卡名稱（如 ens33, eth0, enp0s3 等）
+ip route | grep default  # 查看閘道 IP
+```
+
+#### 設置靜態 IP
+```bash
+# 查看 netplan 配置檔
+ls /etc/netplan/
+
+# 編輯配置檔（檔名可能不同）
+sudo nano /etc/netplan/01-network-manager-all.yaml
+```
+
+#### 配置範例：
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens33:  # 改成您的網卡名稱
+      dhcp4: no
+      addresses:
+        - 192.168.1.100/24  # 改成您想要的固定 IP
+      routes:
+        - to: default
+          via: 192.168.1.1  # 您的路由器 IP
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+```
+
+#### 應用並測試
+```bash
+# 測試配置是否正確
+sudo netplan try
+
+# 如果正確，應用設定
+sudo netplan apply
+
+# 驗證 IP
+ip a
+```
+
+---
+
+### 3️⃣ **設置防火牆規則持久化**
+
+```bash
+# 允許 RDP 端口
+sudo ufw allow 3389/tcp
+
+# 啟用防火牆
+sudo ufw enable
+
+# 檢查狀態
+sudo ufw status numbered
+```
+
+---
+
+### 4️⃣ **優化 xrdp 配置（避免黑屏等問題）**
+
+```bash
+# 編輯啟動腳本
+sudo nano /etc/xrdp/startwm.sh
+```
+
+在 `test -x /etc/X11/Xsession && exec /etc/X11/Xsession` 或 `exec /bin/sh /etc/X11/Xsession` **之前**添加：
+
+```bash
+unset DBUS_SESSION_BUS_ADDRESS
+unset XDG_RUNTIME_DIR
+```
+
+完整範例：
+```bash
+#!/bin/sh
+# xrdp X session start script (c) 2015, 2017 mirabilos
+# published under The MirOS Licence
+
+if test -r /etc/profile; then
+        . /etc/profile
+fi
+
+unset DBUS_SESSION_BUS_ADDRESS
+unset XDG_RUNTIME_DIR
+
+test -x /etc/X11/Xsession && exec /etc/X11/Xsession
+exec /bin/sh /etc/X11/Xsession
+```
+
+保存後重啟服務：
+```bash
+sudo systemctl restart xrdp
+```
+
+---
+
+### 5️⃣ **創建專用遠端使用者（可選但推薦）**
+
+```bash
+# 創建新使用者
+sudo adduser rdpuser
+
+# 加入 sudo 群組（如果需要管理權限）
+sudo usermod -aG sudo rdpuser
+```
+
+---
+
+## 🔄 **完整驗證腳本**
+
+將以下腳本保存為 `check-rdp.sh` 並執行：
+
+```bash
+#!/bin/bash
+echo "======================================"
+echo "遠端桌面連線檢查"
+echo "======================================"
+
+echo -e "\n[1] xrdp 服務狀態:"
+systemctl is-active xrdp
+systemctl is-enabled xrdp
+
+echo -e "\n[2] IP 位址:"
+hostname -I
+
+echo -e "\n[3] 端口 3389 監聽:"
+sudo ss -tlnp | grep 3389
+
+echo -e "\n[4] 防火牆規則:"
+sudo ufw status | grep 3389
+
+echo -e "\n[5] 網路配置:"
+cat /etc/netplan/*.yaml | grep -A 10 "ethernets"
+
+echo -e "\n======================================"
+echo "檢查完成！"
+echo "======================================"
+```
+
+執行方式：
+```bash
+chmod +x check-rdp.sh
+./check-rdp.sh
+```
+
+---
+
+## 🧪 **重啟測試**
+
+完成所有設置後：
+
+```bash
+# 重啟 Ubuntu
+sudo reboot
+```
+
+重啟後從 Windows 11：
+1. 按 `Win + R`
+2. 輸入 `mstsc`
+3. 輸入您設置的靜態 IP（例如：192.168.1.100）
+4. 使用 Ubuntu 帳號密碼登入
+
+---
+
+## 📋 **快速設置一鍵腳本**
+
+```bash
+#!/bin/bash
+# 一鍵設置 xrdp 開機自動啟動
+
+echo "設置 xrdp 開機自動啟動..."
+sudo systemctl enable xrdp
+sudo systemctl enable xrdp-sesman
+
+echo "啟動 xrdp 服務..."
+sudo systemctl start xrdp
+
+echo "設置防火牆..."
+sudo ufw allow 3389/tcp
+
+echo "優化配置..."
+sudo sed -i '/^test -x/i unset DBUS_SESSION_BUS_ADDRESS\nunset XDG_RUNTIME_DIR' /etc/xrdp/startwm.sh
+
+echo "重啟 xrdp..."
+sudo systemctl restart xrdp
+
+echo "完成！請設置靜態 IP 以確保每次重啟後 IP 不變。"
+echo "當前 IP: $(hostname -I)"
+```
+
+---
+
+## ⚠️ **重點提醒**
+
+1. **靜態 IP 是關鍵**：這是確保重啟後能連線的最重要步驟
+2. **服務自動啟動**：確認 `systemctl is-enabled xrdp` 顯示 `enabled`
+3. **防火牆規則**：ufw 規則會自動持久化
+4. **避免本機同時登入**：遠端連線時，不要在 Ubuntu 本機登入同一使用者
+
+完成這些步驟後，每次重啟都能正常遠端連線！有問題隨時告訴我 👍
